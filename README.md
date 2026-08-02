@@ -1,2 +1,122 @@
-# rag_bot
-我是一个rag聊天机器人，上传你的文档来跟我聊天吧。
+# RAG 文档问答 Bot
+
+一个适合作品集演示的 Streamlit RAG 项目：上传 PDF、Markdown 或 TXT，点击构建知识库，然后针对文档内容提问。回答会展示文件名、PDF 页码、相关度和检索原文。
+
+这个项目重点展示两件事：
+
+- 能独立完成 RAG 的加载、切分、向量化、检索、生成和引用链路；
+- 能使用 Streamlit 把模型能力封装成一个可操作的 Web Demo。
+
+## 页面功能
+
+- 同时上传多个 PDF、MD、TXT；
+- 点击按钮构建本次会话的向量知识库；
+- 使用聊天框连续提问；
+- 答案通过 `[资料N]` 标注依据；
+- 展开来源可查看文件名、页码、相关度和原始文本；
+- 显示文档数量、切分片段数量及使用的模型；
+- 单个坏文件不会阻塞其他文件。
+
+## RAG 流程
+
+```mermaid
+flowchart LR
+    A["上传文档"] --> B["读取并按页保留元数据"]
+    B --> C["中文递归切分"]
+    C --> D["text-embedding-v4 向量化"]
+    D --> E["会话级 Chroma 向量库"]
+    Q["用户问题"] --> F["语义检索 Top-K"]
+    E --> F
+    F --> G["拼装带来源上下文"]
+    G --> H["deepseek-v4-flash 生成"]
+    H --> I["答案 + 文件名 + 页码 + 原文"]
+```
+
+## 技术栈
+
+- Python 3.11+
+- Streamlit
+- LangChain Core / Text Splitters
+- Chroma
+- pypdf
+- Alibaba Cloud Model Studio（百炼）
+- `text-embedding-v4`
+- `deepseek-v4-flash`
+
+## 快速运行
+
+### 1. 安装
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -U pip
+python -m pip install -e .
+```
+
+### 2. 配置百炼
+
+```powershell
+Copy-Item .env.example .env
+```
+
+编辑 `.env`：
+
+```dotenv
+DASHSCOPE_API_KEY=你的百炼APIKey
+DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+RAG_CHAT_MODEL=deepseek-v4-flash
+RAG_EMBEDDING_MODEL=text-embedding-v4
+RAG_EMBEDDING_DIMENSIONS=1024
+```
+
+### 3. 启动
+
+```powershell
+streamlit run app.py
+```
+
+打开页面后：
+
+1. 在左侧上传一个或多个文档；
+2. 点击“构建知识库”；
+3. 在聊天框针对文档提问；
+4. 展开答案下方的来源，检查页码和原文。
+
+## 项目结构
+
+```text
+.
+├── app.py                         # Streamlit 上传与聊天界面
+├── src/marketing_rag/
+│   ├── uploads.py                 # 上传文件解析
+│   ├── documents.py               # 本地目录加载模式
+│   ├── chunking.py                # 中文文本切分
+│   ├── embeddings.py              # 百炼 Embedding 适配器
+│   ├── rag.py                     # 检索、提示词、答案与引用
+│   ├── runtime.py                 # 上传式和目录式运行时装配
+│   ├── indexing.py                # 持久化索引模式
+│   └── config.py                  # 环境配置
+├── tests/test_core.py
+├── .env.example
+└── RESUME.md
+```
+
+## 设计说明
+
+上传模式使用会话级向量库：浏览器会话内可以连续问答，上传的新资料需要重新点击“构建知识库”。这样演示时不需要预先配置固定数据目录，也不会把上传文件写进 Git 仓库。
+
+命令行目录模式仍然保留，适合后续学习持久化索引：
+
+```powershell
+python build_index.py
+python ask.py "你的问题"
+```
+
+## 项目边界
+
+- PDF 必须具有文本层；扫描版 PDF 需要增加 OCR；
+- 文档正文会发送给百炼向量模型，检索片段会发送给回答模型；
+- 当前没有登录、权限隔离、混合检索和离线评测；
+- 该版本定位为个人作品集 Demo，不应描述为已经投入生产的企业系统。
+
