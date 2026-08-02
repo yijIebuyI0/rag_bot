@@ -1,0 +1,3 @@
+[console_scripts]
+marketing-rag-ask = marketing_rag.cli:ask_main
+marketing-rag-build = marketing_rag.cli:build_main
